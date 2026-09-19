@@ -43,22 +43,40 @@ responsible for supplying the actual database build commit. Changing the central
 checkout alone does not change the provenance of an existing database. This
 project opens the database read-only and does not build or modify it.
 
-The script refuses to overwrite an existing ZIP. If code or inputs change,
+The packaging script refuses to overwrite an existing ZIP. If code or inputs change,
 choose a new output name; never replace a released archive. Output ZIPs are
 ignored here and preserved with Git LFS in the receiving research repository.
 There is deliberately no target that deletes released ZIPs.
 
 ## Implementation and checks
 
-`src/extract.R` is standalone and declares the database, data notes, build commit
-and output through `command::cmd_assign()`. It aggregates local authorities to
-regions in SQL, uses `agetime` to harmonize age groups, aligns the population
-endpoints, and writes one ZIP through temporary staging files.
+Each script is standalone, declares its inputs and single output through
+`command::cmd_assign()`, and communicates through files. No script sources
+another script. Make connects these five steps:
+
+| Script | Responsibility | Output |
+| --- | --- | --- |
+| `src/extract_migration.R` | Extract regional migration and harmonize ages with `agetime` | `migration.csv` |
+| `src/extract_population.R` | Extract regional population for all required endpoints and harmonize ages | `population.csv` |
+| `src/assemble_data.R` | Join population endpoints to flows and calculate exposure | `data.csv` |
+| `src/write_notes.R` | Add coverage and committed provenance to the data notes | `README.md` |
+| `src/package_zip.R` | Package and verify the CSV and README | Named ZIP |
+
+The intermediate files live in a `.work/` directory beside the named ZIP (for
+example, `out/england-region-migration-2026-09-20-2.work/`). Each release name
+gets its own intermediates. They are ignored by Git and remain available for
+inspection; only the ZIP is delivered to the research project.
+
+Use `make data` to build just the assembled CSV during development; it does
+not require a clean Git tree. Release notes require committed code and notes.
+To build a single step, use its output path as the Make target, with the same
+`OUT` setting. After changing checkouts, use `make -B data` to regenerate the
+intermediates rather than relying on timestamps alone.
 
 Validation checks the complete region-pair/age/sex/year grid, unique keys,
 nonnegative finite values, complete population endpoints, and conservation of
 migration and population totals during age coarsening. It reopens the ZIP and
-compares the packaged CSV with the validated table before publishing it.
+verifies the packaged files byte-for-byte against their inputs before publishing it.
 `dbplyr` is excluded from inferred dependencies: database queries use DBI, with
 dplyr operating only on in-memory tables.
 
