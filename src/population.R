@@ -1,3 +1,5 @@
+command::use_renv()
+
 suppressPackageStartupMessages({
   library(dplyr)
   library(agetime)

@@ -1,3 +1,5 @@
+command::use_renv()
+
 suppressPackageStartupMessages(library(command))
 
 cmd_assign(.data = "out/data.csv", .notes = "out/README.md",
