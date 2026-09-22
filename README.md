@@ -5,10 +5,10 @@ containing `data.csv` and `README.md`. The core research project uses that ZIP
 and has no dependency on `ukmig` or this extraction repository.
 
 The extract covers moves between distinct English regions, single-year ages
-0–89 and `90+`, both sexes, and every migration year in the database. It retains
-origin population at both period endpoints and their average as exposure.
-See [data-notes.md](data-notes.md) for column definitions, age interpretation,
-source attribution and the repeated-population convention.
+0–89 and `90+`, both sexes, and every migration year in the database. Origin
+exposure is cohort-oriented: migration age is age on 30 June at the end of the
+year. See [data-notes.md](data-notes.md) for column definitions, age
+interpretation, source attribution and the repeated-exposure convention.
 
 ## Build
 
@@ -50,17 +50,19 @@ There is deliberately no target that deletes released ZIPs.
 
 ## Implementation and checks
 
-Each script is standalone, declares its inputs and single output through
-`command::cmd_assign()`, and communicates through files. No script sources
-another script. Make connects these five steps:
+Each script is standalone, named after the file it writes, declares its inputs
+and single output through `command::cmd_assign()`, and communicates through
+files. No script sources another script. Make connects these steps:
 
 | Script | Responsibility | Output |
 | --- | --- | --- |
-| `src/extract_migration.R` | Extract regional migration and harmonize ages with `agetime` | `migration.csv` |
-| `src/extract_population.R` | Extract regional population for all required endpoints and harmonize ages | `population.csv` |
-| `src/assemble_data.R` | Join population endpoints to flows and calculate exposure | `data.csv` |
-| `src/write_notes.R` | Add coverage and committed provenance to the data notes | `README.md` |
-| `src/package_zip.R` | Package and verify the CSV and README | Named ZIP |
+| `src/migration.R` | Extract regional migration and harmonize ages with `agetime` | `migration.csv` |
+| `src/population.R` | Extract regional population for all required mid-year endpoints | `population.csv` |
+| `src/births.R` | Extract regional births by sex and year | `births.csv` |
+| `src/exposure.R` | Origin-only cohort exposure from population and births | `exposure.csv` |
+| `src/data.R` | Join origin exposure onto inter-region flows | `data.csv` |
+| `src/notes.R` | Add coverage and committed provenance to the data notes | `README.md` |
+| `src/zip.R` | Package and verify the CSV and README | Named ZIP |
 
 The intermediate files live in a `.work/` directory beside the named ZIP (for
 example, `out/england-region-migration-2026-09-20-2.work/`). Each release name
@@ -74,7 +76,7 @@ To build a single step, use its output path as the Make target, with the same
 intermediates rather than relying on timestamps alone.
 
 Validation checks the complete region-pair/age/sex/year grid, unique keys,
-nonnegative finite values, complete population endpoints, and conservation of
+nonnegative finite values, complete origin exposure, and conservation of
 migration and population totals during age coarsening. It reopens the ZIP and
 verifies the packaged files byte-for-byte against their inputs before publishing it.
 `dbplyr` is excluded from inferred dependencies: database queries use DBI, with

@@ -1,9 +1,15 @@
-suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(agetime)
+  library(command)
+})
 
-command::cmd_assign(.database = "../ukmig/out/ukmig.duckdb",
+cmd_assign(.database = "../ukmig/out/ukmig.duckdb",
                     .out = "out/migration.csv")
 
-# Read inter-region moves only, aggregating local authorities in the database.
+## Extract --------------------------------------------------------------------
+
+# Inter-region moves only; local authorities are aggregated in the database.
 con <- DBI::dbConnect(duckdb::duckdb(), dbdir = .database, read_only = TRUE,
                       config = list(memory_limit = "2GB", threads = "2"))
 tryCatch({
@@ -21,24 +27,26 @@ tryCatch({
 
 }, finally = DBI::dbDisconnect(con, shutdown = TRUE))
 
-target_ages <- as.character(agetime::age_standard(c(as.character(0:89), "90+")))
-agetime::age_assert(target_ages, no_overlap = TRUE, no_gap = TRUE,
-                    no_total = TRUE, no_na = TRUE, has_open_right = TRUE)
+target_ages <- age_labels_one(lower_last = 90)
+age_assert(target_ages, no_overlap = TRUE, no_gap = TRUE,
+           no_total = TRUE, no_na = TRUE, has_open_right = TRUE)
 
 migration_totals <- migration |>
   group_by(time, sex) |> summarise(value = sum(mig), .groups = "drop") |>
   arrange(time, sex)
 migration <- migration |>
-  mutate(age = as.character(agetime::age_coarsen_to(age, to = target_ages))) |>
+  mutate(age = as.character(age_coarsen_to(age, to = target_ages))) |>
   group_by(reg_orig, reg_dest, age, sex, time) |>
   summarise(mig = sum(mig), .groups = "drop")
+
+## Assert ---------------------------------------------------------------------
+
 coarsened_totals <- migration |>
   group_by(time, sex) |> summarise(value = sum(mig), .groups = "drop") |>
   arrange(time, sex)
-stopifnot(isTRUE(all.equal(migration_totals, coarsened_totals, tolerance = 1e-10)))
-
 keys <- c("reg_orig", "reg_dest", "age", "sex", "time")
-stopifnot(!anyNA(migration), !anyDuplicated(migration[keys]),
+stopifnot(isTRUE(all.equal(migration_totals, coarsened_totals, tolerance = 1e-10)),
+          !anyNA(migration), !anyDuplicated(migration[keys]),
           setequal(migration$reg_orig, regions), setequal(migration$reg_dest, regions),
           all(migration$reg_orig != migration$reg_dest),
           setequal(migration$age, target_ages), setequal(migration$time, years),
@@ -46,6 +54,9 @@ stopifnot(!anyNA(migration), !anyDuplicated(migration[keys]),
           nrow(migration) == length(regions) * (length(regions) - 1L) *
             length(target_ages) * 2L * length(years),
           all(is.finite(migration$mig)), all(migration$mig >= 0))
+
+## Write ----------------------------------------------------------------------
+
 migration <- migration |> arrange(time, reg_orig, reg_dest, sex, match(age, target_ages))
 dir.create(dirname(.out), recursive = TRUE, showWarnings = FALSE)
 readr::write_csv(migration, .out)

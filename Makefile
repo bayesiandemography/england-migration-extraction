@@ -9,17 +9,23 @@ WORK := $(basename $(OUT)).work
 all: $(OUT)
 data: $(WORK)/data.csv
 
-$(WORK)/migration.csv: src/extract_migration.R $(DATABASE) Makefile renv.lock
-	Rscript src/extract_migration.R "$(DATABASE)" "$@"
+$(WORK)/migration.csv: src/migration.R $(DATABASE) Makefile renv.lock
+	Rscript src/migration.R "$(DATABASE)" "$@"
 
-$(WORK)/population.csv: src/extract_population.R $(DATABASE) Makefile renv.lock
-	Rscript src/extract_population.R "$(DATABASE)" "$@"
+$(WORK)/population.csv: src/population.R $(DATABASE) Makefile renv.lock
+	Rscript src/population.R "$(DATABASE)" "$@"
 
-$(WORK)/data.csv: src/assemble_data.R $(WORK)/migration.csv $(WORK)/population.csv Makefile renv.lock
-	Rscript src/assemble_data.R "$(WORK)/migration.csv" "$(WORK)/population.csv" "$@"
+$(WORK)/births.csv: src/births.R $(DATABASE) Makefile renv.lock
+	Rscript src/births.R "$(DATABASE)" "$@"
 
-$(WORK)/README.md: src/write_notes.R $(WORK)/data.csv data-notes.md Makefile renv.lock
-	Rscript src/write_notes.R "$(WORK)/data.csv" data-notes.md "$(UKMIG_COMMIT)" "$@"
+$(WORK)/exposure.csv: src/exposure.R $(WORK)/population.csv $(WORK)/births.csv Makefile renv.lock
+	Rscript src/exposure.R "$(WORK)/population.csv" "$(WORK)/births.csv" "$@"
 
-$(OUT): src/package_zip.R $(WORK)/data.csv $(WORK)/README.md Makefile renv.lock
-	Rscript src/package_zip.R "$(WORK)/data.csv" "$(WORK)/README.md" "$@"
+$(WORK)/data.csv: src/data.R $(WORK)/migration.csv $(WORK)/exposure.csv Makefile renv.lock
+	Rscript src/data.R "$(WORK)/migration.csv" "$(WORK)/exposure.csv" "$@"
+
+$(WORK)/README.md: src/notes.R $(WORK)/data.csv data-notes.md Makefile renv.lock
+	Rscript src/notes.R "$(WORK)/data.csv" data-notes.md "$(UKMIG_COMMIT)" "$@"
+
+$(OUT): src/zip.R $(WORK)/data.csv $(WORK)/README.md Makefile renv.lock
+	Rscript src/zip.R "$(WORK)/data.csv" "$(WORK)/README.md" "$@"
