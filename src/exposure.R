@@ -6,15 +6,13 @@ suppressPackageStartupMessages({
   library(command)
 })
 
-cmd_assign(.population = "out/population.csv",
-                    .births = "out/births.csv", .out = "out/exposure.csv")
+cmd_assign(.population = "out/population.rds",
+                    .births = "out/births.rds", .out = "out/exposure.rds")
 
 ## Read -----------------------------------------------------------------------
 
-population <- readr::read_csv(.population, col_types = "cccid")
-births <- readr::read_csv(.births, col_types = "ccid")
-readr::stop_for_problems(population)
-readr::stop_for_problems(births)
+population <- readRDS(.population)
+births <- readRDS(.births)
 
 ## Assert inputs --------------------------------------------------------------
 
@@ -36,7 +34,8 @@ stopifnot(length(regions) == 9L, length(years) > 0L,
 target_ages <- age_labels_one(lower_last = 90)
 age_assert(target_ages, no_overlap = TRUE, no_gap = TRUE,
            no_total = TRUE, no_na = TRUE, has_open_right = TRUE)
-stopifnot(setequal(population$age, target_ages))
+stopifnot(is.factor(population$age), identical(levels(population$age), target_ages),
+          setequal(population$age, target_ages))
 
 ## Calculate ------------------------------------------------------------------
 
@@ -58,7 +57,8 @@ ages_1_89 <- popn_end |>
   left_join(
     population |>
       filter(age %in% as.character(0:88)) |>
-      transmute(region, age = as.character(as.integer(age) + 1L), sex,
+      transmute(region, age = factor(as.character(age_lower(age) + 1L),
+                                    levels = target_ages), sex,
                 time = time + 1L, popn_start = popn),
     by = c("region", "age", "sex", "time"),
     relationship = "one-to-one"
@@ -86,7 +86,8 @@ age90 <- popn_end |>
             exposure = 0.5 * (popn_89_start + popn_90_start + popn_end))
 
 exposure <- bind_rows(age0, ages_1_89, age90) |>
-  arrange(time, region, sex, match(age, target_ages))
+  mutate(age = factor(age, levels = target_ages)) |>
+  arrange(time, region, sex, age)
 
 ## Assert ---------------------------------------------------------------------
 
@@ -94,11 +95,13 @@ keys <- c("region", "age", "sex", "time")
 stopifnot(nrow(exposure) == length(regions) * length(target_ages) * 2L * length(years),
           identical(names(exposure), c("region", "age", "sex", "time", "exposure")),
           !anyNA(exposure), !anyDuplicated(exposure[keys]),
-          setequal(exposure$region, regions), setequal(exposure$age, target_ages),
+          setequal(exposure$region, regions),
+          is.factor(exposure$age), identical(levels(exposure$age), target_ages),
+          setequal(exposure$age, target_ages),
           setequal(exposure$sex, c("Female", "Male")), setequal(exposure$time, years),
           all(is.finite(exposure$exposure)), all(exposure$exposure >= 0))
 
 ## Write ----------------------------------------------------------------------
 
 dir.create(dirname(.out), recursive = TRUE, showWarnings = FALSE)
-readr::write_csv(exposure, .out)
+saveRDS(exposure, .out)

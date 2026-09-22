@@ -9,20 +9,20 @@ WORK := $(basename $(OUT)).work
 all: $(OUT)
 data: $(WORK)/data.csv
 
-$(WORK)/migration.csv: src/migration.R $(DATABASE) Makefile renv.lock
+$(WORK)/migration.rds: src/migration.R $(DATABASE) Makefile renv.lock
 	Rscript src/migration.R "$(DATABASE)" "$@"
 
-$(WORK)/population.csv: src/population.R $(DATABASE) Makefile renv.lock
+$(WORK)/population.rds: src/population.R $(DATABASE) Makefile renv.lock
 	Rscript src/population.R "$(DATABASE)" "$@"
 
-$(WORK)/births.csv: src/births.R $(DATABASE) Makefile renv.lock
+$(WORK)/births.rds: src/births.R $(DATABASE) Makefile renv.lock
 	Rscript src/births.R "$(DATABASE)" "$@"
 
-$(WORK)/exposure.csv: src/exposure.R $(WORK)/population.csv $(WORK)/births.csv Makefile renv.lock
-	Rscript src/exposure.R "$(WORK)/population.csv" "$(WORK)/births.csv" "$@"
+$(WORK)/exposure.rds: src/exposure.R $(WORK)/population.rds $(WORK)/births.rds Makefile renv.lock
+	Rscript src/exposure.R "$(WORK)/population.rds" "$(WORK)/births.rds" "$@"
 
-$(WORK)/data.csv: src/data.R $(WORK)/migration.csv $(WORK)/exposure.csv Makefile renv.lock
-	Rscript src/data.R "$(WORK)/migration.csv" "$(WORK)/exposure.csv" "$@"
+$(WORK)/data.csv: src/data.R $(WORK)/migration.rds $(WORK)/exposure.rds Makefile renv.lock
+	Rscript src/data.R "$(WORK)/migration.rds" "$(WORK)/exposure.rds" "$@"
 
 $(WORK)/README.md: src/notes.R $(WORK)/data.csv data-notes.md Makefile renv.lock
 	Rscript src/notes.R "$(WORK)/data.csv" data-notes.md "$(UKMIG_COMMIT)" "$@"

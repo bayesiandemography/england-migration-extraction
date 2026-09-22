@@ -6,15 +6,13 @@ suppressPackageStartupMessages({
   library(command)
 })
 
-cmd_assign(.migration = "out/migration.csv",
-                    .exposure = "out/exposure.csv", .out = "out/data.csv")
+cmd_assign(.migration = "out/migration.rds",
+                    .exposure = "out/exposure.rds", .out = "out/data.csv")
 
 ## Read -----------------------------------------------------------------------
 
-migration <- readr::read_csv(.migration, col_types = "ccccid")
-exposure <- readr::read_csv(.exposure, col_types = "cccid")
-readr::stop_for_problems(migration)
-readr::stop_for_problems(exposure)
+migration <- readRDS(.migration)
+exposure <- readRDS(.exposure)
 
 ## Assert inputs --------------------------------------------------------------
 
@@ -30,7 +28,9 @@ stopifnot(length(regions) == 9L, length(years) > 0L,
 target_ages <- age_labels_one(lower_last = 90)
 age_assert(target_ages, no_overlap = TRUE, no_gap = TRUE,
            no_total = TRUE, no_na = TRUE, has_open_right = TRUE)
-stopifnot(setequal(migration$age, target_ages), setequal(exposure$age, target_ages))
+stopifnot(is.factor(migration$age), identical(levels(migration$age), target_ages),
+          is.factor(exposure$age), identical(levels(exposure$age), target_ages),
+          setequal(migration$age, target_ages), setequal(exposure$age, target_ages))
 
 ## Join -----------------------------------------------------------------------
 
@@ -39,7 +39,7 @@ out <- migration |>
   left_join(exposure, by = c("reg_orig" = "region", "age", "sex", "time"),
             relationship = "many-to-one") |>
   rename(exposure_orig = exposure) |>
-  arrange(time, reg_orig, reg_dest, sex, match(age, target_ages))
+  arrange(time, reg_orig, reg_dest, sex, age)
 
 ## Assert ---------------------------------------------------------------------
 

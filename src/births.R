@@ -6,7 +6,7 @@ suppressPackageStartupMessages({
 })
 
 cmd_assign(.database = "../ukmig/out/ukmig.duckdb",
-                    .out = "out/births.csv")
+                    .out = "out/births.rds")
 
 ## Extract --------------------------------------------------------------------
 
@@ -42,4 +42,4 @@ stopifnot(identical(names(births), c("region", "sex", "time", "births")),
 
 births <- births |> arrange(time, region, sex)
 dir.create(dirname(.out), recursive = TRUE, showWarnings = FALSE)
-readr::write_csv(births, .out)
+saveRDS(births, .out)

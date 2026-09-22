@@ -56,18 +56,19 @@ files. No script sources another script. Make connects these steps:
 
 | Script | Responsibility | Output |
 | --- | --- | --- |
-| `src/migration.R` | Extract regional migration and harmonize ages with `agetime` | `migration.csv` |
-| `src/population.R` | Extract regional population for all required mid-year endpoints | `population.csv` |
-| `src/births.R` | Extract regional births by sex and year | `births.csv` |
-| `src/exposure.R` | Origin-only cohort exposure from population and births | `exposure.csv` |
+| `src/migration.R` | Extract regional migration and harmonize ages with `agetime` | `migration.rds` |
+| `src/population.R` | Extract regional population for all required mid-year endpoints | `population.rds` |
+| `src/births.R` | Extract regional births by sex and year | `births.rds` |
+| `src/exposure.R` | Origin-only cohort exposure from population and births | `exposure.rds` |
 | `src/data.R` | Join origin exposure onto inter-region flows | `data.csv` |
 | `src/notes.R` | Add coverage and committed provenance to the data notes | `README.md` |
 | `src/zip.R` | Package and verify the CSV and README | Named ZIP |
 
 The intermediate files live in a `.work/` directory beside the named ZIP (for
-example, `out/england-region-migration-2026-09-20-2.work/`). Each release name
+example, `out/england-region-migration-2026-09-20-2.work/`). Migration, population,
+births and exposure are RDS so age remains an `agetime` factor. Each release name
 gets its own intermediates. They are ignored by Git and remain available for
-inspection; only the ZIP is delivered to the research project.
+inspection in R; only the ZIP is delivered to the research project.
 
 Use `make data` to build just the assembled CSV during development; it does
 not require a clean Git tree. Release notes require committed code and notes.

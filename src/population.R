@@ -7,7 +7,7 @@ suppressPackageStartupMessages({
 })
 
 cmd_assign(.database = "../ukmig/out/ukmig.duckdb",
-                    .out = "out/population.csv")
+                    .out = "out/population.rds")
 
 ## Extract --------------------------------------------------------------------
 
@@ -37,7 +37,7 @@ population_totals <- population |>
   group_by(time, sex) |> summarise(value = sum(popn), .groups = "drop") |>
   arrange(time, sex)
 population <- population |>
-  mutate(age = as.character(age_coarsen_to(age, to = target_ages))) |>
+  mutate(age = age_coarsen_to(age, to = target_ages)) |>
   group_by(region, age, sex, time) |>
   summarise(popn = sum(popn), .groups = "drop")
 
@@ -48,6 +48,7 @@ coarsened_population <- population |>
   arrange(time, sex)
 stopifnot(isTRUE(all.equal(population_totals, coarsened_population, tolerance = 1e-10)),
           setequal(population$time, seq.int(min(years) - 1L, max(years))),
+          is.factor(population$age), identical(levels(population$age), target_ages),
           setequal(population$age, target_ages),
           setequal(population$sex, c("Female", "Male")),
           nrow(population) == length(regions) * length(target_ages) * 2L * (length(years) + 1L),
@@ -57,6 +58,6 @@ stopifnot(isTRUE(all.equal(population_totals, coarsened_population, tolerance = 
 
 ## Write ----------------------------------------------------------------------
 
-population <- population |> arrange(time, region, sex, match(age, target_ages))
+population <- population |> arrange(time, region, sex, age)
 dir.create(dirname(.out), recursive = TRUE, showWarnings = FALSE)
-readr::write_csv(population, .out)
+saveRDS(population, .out)

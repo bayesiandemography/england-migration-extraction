@@ -7,7 +7,7 @@ suppressPackageStartupMessages({
 })
 
 cmd_assign(.database = "../ukmig/out/ukmig.duckdb",
-                    .out = "out/migration.csv")
+                    .out = "out/migration.rds")
 
 ## Extract --------------------------------------------------------------------
 
@@ -37,7 +37,7 @@ migration_totals <- migration |>
   group_by(time, sex) |> summarise(value = sum(mig), .groups = "drop") |>
   arrange(time, sex)
 migration <- migration |>
-  mutate(age = as.character(age_coarsen_to(age, to = target_ages))) |>
+  mutate(age = age_coarsen_to(age, to = target_ages)) |>
   group_by(reg_orig, reg_dest, age, sex, time) |>
   summarise(mig = sum(mig), .groups = "drop")
 
@@ -51,6 +51,7 @@ stopifnot(isTRUE(all.equal(migration_totals, coarsened_totals, tolerance = 1e-10
           !anyNA(migration), !anyDuplicated(migration[keys]),
           setequal(migration$reg_orig, regions), setequal(migration$reg_dest, regions),
           all(migration$reg_orig != migration$reg_dest),
+          is.factor(migration$age), identical(levels(migration$age), target_ages),
           setequal(migration$age, target_ages), setequal(migration$time, years),
           setequal(migration$sex, c("Female", "Male")),
           nrow(migration) == length(regions) * (length(regions) - 1L) *
@@ -59,6 +60,6 @@ stopifnot(isTRUE(all.equal(migration_totals, coarsened_totals, tolerance = 1e-10
 
 ## Write ----------------------------------------------------------------------
 
-migration <- migration |> arrange(time, reg_orig, reg_dest, sex, match(age, target_ages))
+migration <- migration |> arrange(time, reg_orig, reg_dest, sex, age)
 dir.create(dirname(.out), recursive = TRUE, showWarnings = FALSE)
-readr::write_csv(migration, .out)
+saveRDS(migration, .out)
